@@ -1,10 +1,4 @@
-/*
- * Performance Benchmarking Suite for Microgrid Energy Routing
- * Compares Binary Min-Heap Dijkstra vs Bellman-Ford Shortest Path
- *
- * Reproducible random graphs: V = 100, 500, 1000, 5000, 10000
- * Measures real execution time and exports to 'benchmark_results.csv'
- */
+/* Benchmarking Dijkstra vs Bellman-Ford */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -18,14 +12,12 @@
 
 #define INF 1000000000
 
-/* Edge representation */
 typedef struct {
     int src;
     int dest;
     int weight;
 } Edge;
 
-/* Adjacency list node */
 typedef struct AdjListNode {
     int dest;
     int weight;
@@ -36,7 +28,6 @@ typedef struct {
     AdjListNode* head;
 } AdjList;
 
-/* Graph representation */
 typedef struct {
     int numVertices;
     int numEdges;
@@ -45,7 +36,6 @@ typedef struct {
     Edge* edges;
 } Graph;
 
-/* Min-Heap structures for Dijkstra */
 typedef struct {
     int v;
     int dist;
@@ -58,7 +48,6 @@ typedef struct {
     MinHeapNode** array;
 } MinHeap;
 
-/* High-resolution timer */
 #ifdef _WIN32
 static LARGE_INTEGER perfFrequency;
 static int perfInit = 0;
@@ -82,7 +71,6 @@ double getTimeMs() {
 }
 #endif
 
-/* Graph creation */
 Graph* createGraph(int numVertices, int edgeCapacity) {
     Graph* graph = (Graph*)malloc(sizeof(Graph));
     graph->numVertices = numVertices;
@@ -132,7 +120,6 @@ void freeGraph(Graph* graph) {
     free(graph);
 }
 
-/* Min-Heap operations */
 MinHeapNode* newMinHeapNode(int v, int dist) {
     MinHeapNode* node = (MinHeapNode*)malloc(sizeof(MinHeapNode));
     node->v = v;
@@ -220,7 +207,6 @@ int isInMinHeap(MinHeap* minHeap, int v) {
     return minHeap->pos[v] < minHeap->size;
 }
 
-/* Dijkstra algorithm */
 void benchmarkDijkstra(Graph* graph, int source, int dist[], int parent[]) {
     if (!graph || graph->numVertices <= 0 || source < 0 || source >= graph->numVertices) return;
     int V = graph->numVertices;
@@ -262,7 +248,6 @@ void benchmarkDijkstra(Graph* graph, int source, int dist[], int parent[]) {
     freeMinHeap(minHeap);
 }
 
-/* Bellman-Ford with early break optimization */
 int benchmarkBellmanFordEarly(Graph* graph, int source, int dist[], int parent[]) {
     if (!graph || graph->numVertices <= 0 || source < 0 || source >= graph->numVertices) return 0;
     int V = graph->numVertices;
@@ -301,7 +286,6 @@ int benchmarkBellmanFordEarly(Graph* graph, int source, int dist[], int parent[]
     return 0;
 }
 
-/* Bellman-Ford standard execution (Full V - 1 passes, no early break) */
 int benchmarkBellmanFordWorstCase(Graph* graph, int source, int dist[], int parent[]) {
     if (!graph || graph->numVertices <= 0 || source < 0 || source >= graph->numVertices) return 0;
     int V = graph->numVertices;
@@ -337,22 +321,15 @@ int benchmarkBellmanFordWorstCase(Graph* graph, int source, int dist[], int pare
     return 0;
 }
 
-/*
- * Generate a reproducible random graph.
- * Uses a fixed seed. Guarantees reachability by building a backbone spine 0->1->2...->V-1,
- * then adds remaining edges randomly with non-negative weights (1 to 100).
- */
 Graph* generateRandomGraph(int V, int targetE, unsigned int seed) {
     srand(seed);
     Graph* graph = createGraph(V, targetE);
 
-    /* 1. Create a backbone chain to ensure connectivity and reachability */
     for (int i = 0; i < V - 1; i++) {
         int weight = 1 + (rand() % 50);
         addEdge(graph, i, i + 1, weight);
     }
 
-    /* 2. Add remaining edges randomly */
     int remaining = targetE - (V - 1);
     for (int i = 0; i < remaining; i++) {
         int u = rand() % V;
@@ -367,13 +344,7 @@ Graph* generateRandomGraph(int V, int targetE, unsigned int seed) {
     return graph;
 }
 
-/*
- * Generate an adversarial topological worst-case graph for Bellman-Ford:
- * A directed chain 0 -> 1 -> 2 ... -> V-1 where edges are stored in REVERSE order:
- * (V-2 -> V-1), (V-3 -> V-2), ..., (0 -> 1).
- * In this topology, each pass k only relaxes edge (k-1 -> k), forcing
- * EVEN early-break Bellman-Ford to execute all V - 1 relaxation passes!
- */
+/* Reverse chain topology (worst case for Bellman-Ford) */
 Graph* generateAdversarialWorstCaseGraph(int V) {
     Graph* graph = createGraph(V, V > 1 ? V - 1 : 1);
     for (int i = V - 2; i >= 0; i--) {
@@ -383,7 +354,6 @@ Graph* generateAdversarialWorstCaseGraph(int V) {
     return graph;
 }
 
-/* Benchmark test configuration */
 typedef struct {
     int V;
     int E;
@@ -404,12 +374,11 @@ int main() {
     printf("Edge Weights: Uniform positive range [1, 100] (No negative cycles)\n");
     printf("========================================================================\n\n");
 
-    /* Define benchmark target sizes: 100, 500, 1000, 5000, 10000 */
     BenchmarkConfig configs[] = {
         {100,    400,    "Sparse (Degree ~4)"},
         {500,    2000,   "Sparse (Degree ~4)"},
         {1000,   4000,   "Sparse (Degree ~4)"},
-        {1000,   20000,  "Dense  (Degree ~20)"},  /* Density impact comparison */
+        {1000,   20000,  "Dense  (Degree ~20)"},
         {5000,   20000,  "Sparse (Degree ~4)"},
         {10000,  40000,  "Sparse (Degree ~4)"}
     };
@@ -431,7 +400,6 @@ int main() {
         int E = configs[i].E;
         double avgDegree = (double)E / (double)V;
 
-        /* Generate reproducible graph with seed 42 */
         Graph* g = generateRandomGraph(V, E, 42 + i * 17);
 
         int* distD = (int*)malloc(V * sizeof(int));
@@ -439,7 +407,6 @@ int main() {
         int* distB = (int*)malloc(V * sizeof(int));
         int* parentB = (int*)malloc(V * sizeof(int));
 
-        /* Measure Dijkstra */
         int dijkstraRuns = (V <= 1000) ? 10 : 3;
         double startD = getTimeMs();
         for (int r = 0; r < dijkstraRuns; r++) {
@@ -448,7 +415,6 @@ int main() {
         double endD = getTimeMs();
         double timeDijkstra = (endD - startD) / dijkstraRuns;
 
-        /* Measure Bellman-Ford (Early Exit) */
         int bfEarlyRuns = (V <= 500) ? 5 : ((V <= 1000) ? 3 : 1);
         double startBEarly = getTimeMs();
         for (int r = 0; r < bfEarlyRuns; r++) {
@@ -457,7 +423,6 @@ int main() {
         double endBEarly = getTimeMs();
         double timeBFEarly = (endBEarly - startBEarly) / bfEarlyRuns;
 
-        /* Measure Bellman-Ford (Worst Case: Full V-1 Passes) */
         int bfWorstRuns = (V <= 500) ? 3 : 1;
         double startBWorst = getTimeMs();
         for (int r = 0; r < bfWorstRuns; r++) {
@@ -486,7 +451,6 @@ int main() {
     printf("-----------------------------------------------------------------------------------------------------------\n");
     printf("\nSuccessfully saved verified measurements to 'benchmark_results.csv'!\n");
 
-    /* --- Adversarial Topological Worst-Case Evaluation --- */
     printf("\n===========================================================================================================\n");
     printf("   ADVERSARIAL TOPOLOGICAL WORST-CASE BENCHMARK (Reverse-Ordered Line Graph)                                \n");
     printf("   Theory: When diameter = V - 1 and edges are ordered adversarially, early-exit cannot terminate early.    \n");

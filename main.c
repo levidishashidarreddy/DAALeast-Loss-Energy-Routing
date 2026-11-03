@@ -1,12 +1,4 @@
-/*
- * Least-Loss Energy Routing in a Microgrid
- * DAA Project - Second Year B.Tech CSE
- *
- * Implements:
- * 1. Binary Min-Heap Dijkstra's Shortest Path Algorithm
- * 2. Bellman-Ford Shortest Path Algorithm
- * 3. Negative Cycle Detection & Path Reconstruction
- */
+/* Least-Loss Energy Routing in a Microgrid */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -15,26 +7,22 @@
 
 #define INF 1000000000
 
-/* Structure to represent a directed transmission line */
 typedef struct {
     int src;
     int dest;
     int weight;
 } Edge;
 
-/* Adjacency list node for Dijkstra */
 typedef struct AdjListNode {
     int dest;
     int weight;
     struct AdjListNode* next;
 } AdjListNode;
 
-/* Adjacency list */
 typedef struct {
     AdjListNode* head;
 } AdjList;
 
-/* Microgrid Graph representation */
 typedef struct {
     int numVertices;
     int numEdges;
@@ -43,21 +31,17 @@ typedef struct {
     Edge* edges;
 } Graph;
 
-/* Min-Heap Node for Dijkstra */
 typedef struct {
     int v;
     int dist;
 } MinHeapNode;
 
-/* Binary Min-Heap with position tracking for decreaseKey */
 typedef struct {
     int size;
     int capacity;
     int* pos;
     MinHeapNode** array;
 } MinHeap;
-
-/* --- Graph Operations --- */
 
 Graph* createGraph(int numVertices, int edgeCapacity) {
     Graph* graph = (Graph*)malloc(sizeof(Graph));
@@ -81,14 +65,12 @@ void addEdge(Graph* graph, int src, int dest, int weight) {
         return;
     }
 
-    /* Add to adjacency list for Dijkstra */
     AdjListNode* newNode = (AdjListNode*)malloc(sizeof(AdjListNode));
     newNode->dest = dest;
     newNode->weight = weight;
     newNode->next = graph->adj[src].head;
     graph->adj[src].head = newNode;
 
-    /* Add to edge list for Bellman-Ford */
     if (graph->numEdges >= graph->edgeCapacity) {
         graph->edgeCapacity *= 2;
         graph->edges = (Edge*)realloc(graph->edges, graph->edgeCapacity * sizeof(Edge));
@@ -143,7 +125,6 @@ void printGraphSummary(Graph* graph) {
     printf("==========================\n");
 }
 
-/* --- Binary Min-Heap Implementation for Dijkstra --- */
 
 MinHeapNode* newMinHeapNode(int v, int dist) {
     MinHeapNode* minHeapNode = (MinHeapNode*)malloc(sizeof(MinHeapNode));
@@ -232,8 +213,6 @@ int isInMinHeap(MinHeap* minHeap, int v) {
     return minHeap->pos[v] < minHeap->size;
 }
 
-/* --- Path Reconstruction & Output Helpers --- */
-
 void getPathArray(int parent[], int destination, int path[], int* pathLength, int maxNodes) {
     int curr = destination;
     int count = 0;
@@ -241,7 +220,6 @@ void getPathArray(int parent[], int destination, int path[], int* pathLength, in
         path[count++] = curr;
         curr = parent[curr];
     }
-    /* Reverse the path array to get source -> destination */
     for (int i = 0; i < count / 2; i++) {
         int temp = path[i];
         path[i] = path[count - 1 - i];
@@ -268,8 +246,6 @@ void printRoute(int parent[], int source, int destination, int numVertices) {
     free(path);
 }
 
-/* --- Dijkstra's Algorithm (Binary Min-Heap) --- */
-
 int dijkstra(Graph* graph, int source, int destination, int dist[], int parent[]) {
     if (!graph || graph->numVertices <= 0 ||
         source < 0 || source >= graph->numVertices ||
@@ -279,7 +255,6 @@ int dijkstra(Graph* graph, int source, int destination, int dist[], int parent[]
 
     int V = graph->numVertices;
 
-    /* Check for negative weights and warn */
     if (hasNegativeEdge(graph)) {
         printf("\n[WARNING: Dijkstra Pre-check]\n");
         printf("Graph contains negative edge weights (energy rebates).\n");
@@ -297,7 +272,6 @@ int dijkstra(Graph* graph, int source, int destination, int dist[], int parent[]
     }
     minHeap->size = V;
 
-    /* Initialize source vertex */
     dist[source] = 0;
     decreaseKey(minHeap, source, 0);
 
@@ -311,7 +285,6 @@ int dijkstra(Graph* graph, int source, int destination, int dist[], int parent[]
             break;
         }
 
-        /* Relax adjacent vertices */
         AdjListNode* crawl = graph->adj[u].head;
         while (crawl != NULL) {
             int v = crawl->dest;
@@ -329,12 +302,10 @@ int dijkstra(Graph* graph, int source, int destination, int dist[], int parent[]
     freeMinHeap(minHeap);
 
     if (dist[destination] >= INF / 2) {
-        return 0; /* Unreachable */
+        return 0;
     }
-    return 1; /* Path found */
+    return 1;
 }
-
-/* --- Bellman-Ford Algorithm with Negative Cycle Detection --- */
 
 int bellmanFord(Graph* graph, int source, int destination, int dist[], int parent[], int* cycleNode) {
     if (!graph || graph->numVertices <= 0 ||
@@ -354,7 +325,6 @@ int bellmanFord(Graph* graph, int source, int destination, int dist[], int paren
     }
     dist[source] = 0;
 
-    /* Relax all transmission lines V - 1 times */
     for (int i = 1; i <= V - 1; i++) {
         int relaxedAny = 0;
         for (int j = 0; j < E; j++) {
@@ -368,37 +338,33 @@ int bellmanFord(Graph* graph, int source, int destination, int dist[], int paren
                 relaxedAny = 1;
             }
         }
-        /* Early exit optimization if no edge was relaxed in this round */
         if (!relaxedAny) {
             break;
         }
     }
 
-    /* Pass V: Check for negative-weight cycles reachable from source */
     for (int j = 0; j < E; j++) {
         int u = graph->edges[j].src;
         int v = graph->edges[j].dest;
         int w = graph->edges[j].weight;
 
         if (dist[u] < INF / 2 && dist[u] + w < dist[v]) {
-            parent[v] = u; /* Connect cycle edge in predecessor tree so cycle extraction succeeds */
+            parent[v] = u;
             *cycleNode = v;
-            return -1; /* Negative cycle detected! */
+            return -1;
         }
     }
 
     if (dist[destination] >= INF / 2) {
-        return 0; /* Destination unreachable */
+        return 0;
     }
-    return 1; /* Valid shortest path found */
+    return 1;
 }
 
-/* Helper to trace and print the negative cycle vertices */
 void printNegativeCycle(Graph* graph, int startNode, int parent[]) {
     int V = graph->numVertices;
     int curr = startNode;
 
-    /* Step back V times to ensure we enter the cycle loop */
     for (int i = 0; i < V; i++) {
         if (curr != -1 && parent[curr] != -1) {
             curr = parent[curr];
@@ -430,7 +396,6 @@ void printNegativeCycle(Graph* graph, int startNode, int parent[]) {
     free(cycle);
 }
 
-/* Display algorithm result cleanly */
 void displayResult(const char* algoName, int source, int destination, int status, int dist[], int parent[], int cycleNode, Graph* graph) {
     printf("\n--------------------------------------------------\n");
     printf("Algorithm: %s\n", algoName);
@@ -470,9 +435,7 @@ void displayResult(const char* algoName, int source, int destination, int status
     printf("--------------------------------------------------\n");
 }
 
-/* --- Predefined Demonstrations Required by Faculty --- */
-
-/* Demo 1: Dijkstra Failure vs Bellman-Ford Success on Negative Edge */
+/* Demo 1 */
 void runDemo1() {
     printf("\n======================================================================\n");
     printf("DEMONSTRATION 1: Dijkstra Failure vs Bellman-Ford on Negative Edge\n");
@@ -517,7 +480,7 @@ void runDemo1() {
     freeGraph(g);
 }
 
-/* Demo 2: Non-negative graph where both algorithms succeed */
+/* Demo 2 */
 void runDemo2() {
     printf("\n======================================================================\n");
     printf("DEMONSTRATION 2: Standard Graph with Only Non-Negative Edges\n");
@@ -545,7 +508,7 @@ void runDemo2() {
     freeGraph(g);
 }
 
-/* Demo 3: Graph with a negative edge but NO negative cycle */
+/* Demo 3 */
 void runDemo3() {
     printf("\n======================================================================\n");
     printf("DEMONSTRATION 3: Graph with Negative Rebate Edge but No Negative Cycle\n");
@@ -555,7 +518,7 @@ void runDemo3() {
     addEdge(g, 0, 1, 6);
     addEdge(g, 0, 2, 7);
     addEdge(g, 1, 2, 8);
-    addEdge(g, 1, 3, -4); /* Rebate on line 1 -> 3 */
+    addEdge(g, 1, 3, -4);
     addEdge(g, 2, 3, 9);
 
     printGraphSummary(g);
@@ -568,7 +531,7 @@ void runDemo3() {
     freeGraph(g);
 }
 
-/* Demo 4: Graph with a reachable negative cycle */
+/* Demo 4 */
 void runDemo4() {
     printf("\n======================================================================\n");
     printf("DEMONSTRATION 4: Graph with Reachable Negative Arbitrage Cycle\n");
@@ -577,7 +540,7 @@ void runDemo4() {
     Graph* g = createGraph(3, 3);
     addEdge(g, 0, 1, 3);
     addEdge(g, 1, 2, 2);
-    addEdge(g, 2, 1, -4); /* Negative cycle: 1 -> 2 -> 1 has net cost 2 + (-4) = -2 */
+    addEdge(g, 2, 1, -4);
 
     printGraphSummary(g);
 
@@ -588,7 +551,7 @@ void runDemo4() {
     freeGraph(g);
 }
 
-/* Demo 5: Destination unreachable */
+/* Demo 5 */
 void runDemo5() {
     printf("\n======================================================================\n");
     printf("DEMONSTRATION 5: Destination Cannot Be Reached\n");
@@ -596,7 +559,6 @@ void runDemo5() {
 
     Graph* g = createGraph(3, 1);
     addEdge(g, 0, 1, 5);
-    /* Node 2 has no incoming lines */
 
     printGraphSummary(g);
 
@@ -611,7 +573,7 @@ void runDemo5() {
     freeGraph(g);
 }
 
-/* Demo 6: Source and destination are the same */
+/* Demo 6 */
 void runDemo6() {
     printf("\n======================================================================\n");
     printf("DEMONSTRATION 6: Source and Destination Are the Same Node\n");
@@ -643,8 +605,6 @@ void runAllDemonstrations() {
     runDemo6();
 }
 
-/* --- Automated Unit Correctness Tests --- */
-
 void runAutomatedTests() {
     printf("\n==================================================\n");
     printf("   RUNNING AUTOMATED UNIT CORRECTNESS TESTS       \n");
@@ -652,7 +612,7 @@ void runAutomatedTests() {
     int passed = 0;
     int total = 6;
 
-    /* Test 1: Dijkstra Failure on Negative Edge */
+    /* Test 1 */
     {
         Graph* g = createGraph(3, 3);
         addEdge(g, 0, 1, 5);
@@ -674,7 +634,7 @@ void runAutomatedTests() {
         freeGraph(g);
     }
 
-    /* Test 2: Non-negative graph agreement */
+    /* Test 2 */
     {
         Graph* g = createGraph(4, 5);
         addEdge(g, 0, 1, 4);
@@ -698,7 +658,7 @@ void runAutomatedTests() {
         freeGraph(g);
     }
 
-    /* Test 3: Negative edge without negative cycle */
+    /* Test 3 */
     {
         Graph* g = createGraph(4, 5);
         addEdge(g, 0, 1, 6);
@@ -719,7 +679,7 @@ void runAutomatedTests() {
         freeGraph(g);
     }
 
-    /* Test 4: Reachable negative cycle */
+    /* Test 4 */
     {
         Graph* g = createGraph(3, 3);
         addEdge(g, 0, 1, 3);
@@ -738,7 +698,7 @@ void runAutomatedTests() {
         freeGraph(g);
     }
 
-    /* Test 5: Unreachable destination */
+    /* Test 5 */
     {
         Graph* g = createGraph(3, 1);
         addEdge(g, 0, 1, 5);
@@ -758,7 +718,7 @@ void runAutomatedTests() {
         freeGraph(g);
     }
 
-    /* Test 6: Source equals Destination */
+    /* Test 6 */
     {
         Graph* g = createGraph(3, 2);
         addEdge(g, 0, 1, 4);
@@ -786,8 +746,6 @@ void runAutomatedTests() {
     }
     printf("==================================================\n");
 }
-
-/* --- Graph Input from File and Console --- */
 
 Graph* loadGraphFromFile(const char* filename) {
     FILE* file = fopen(filename, "r");
@@ -867,16 +825,12 @@ Graph* inputCustomGraph() {
     return g;
 }
 
-/* --- Main Terminal Interface --- */
-
 int main(int argc, char* argv[]) {
-    /* If run with --test argument, execute test suite and exit directly */
     if (argc > 1 && strcmp(argv[1], "--test") == 0) {
         runAutomatedTests();
         return 0;
     }
 
-    /* If run with --demo argument, execute all faculty demos and exit directly */
     if (argc > 1 && strcmp(argv[1], "--demo") == 0) {
         runAllDemonstrations();
         return 0;
@@ -887,7 +841,6 @@ int main(int argc, char* argv[]) {
     printf("===================================================================\n");
     printf("Department of Computer Science & Engineering - B.Tech (Year 2)    \n");
 
-    /* Default active graph initialized to standard demo graph */
     Graph* activeGraph = createGraph(4, 5);
     addEdge(activeGraph, 0, 1, 4);
     addEdge(activeGraph, 0, 2, 2);
@@ -911,7 +864,6 @@ int main(int argc, char* argv[]) {
         printf("Enter your choice (0-9): ");
 
         if (scanf("%d", &choice) != 1) {
-            /* Clear input buffer on invalid input */
             int c;
             while ((c = getchar()) != '\n' && c != EOF);
             printf("Invalid input. Please enter a number between 0 and 9.\n");
