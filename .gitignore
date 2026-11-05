@@ -1,0 +1,19 @@
+# Binaries & Executables
+*.exe
+*.o
+*.obj
+*.out
+
+# Python Cache
+__pycache__/
+*.py[cod]
+
+# Media & Screenshots
+*.png
+*.jpg
+*.jpeg
+*.gif
+
+# OS metadata
+.DS_Store
+Thumbs.db

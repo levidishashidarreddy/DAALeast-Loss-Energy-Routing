@@ -4,6 +4,32 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <string.h>
+#include <time.h>
+
+#ifdef _WIN32
+#include <windows.h>
+static LARGE_INTEGER timerFrequency;
+static int timerInitialized = 0;
+static void initPrecisionTimer(void) {
+    if (!timerInitialized) {
+        QueryPerformanceFrequency(&timerFrequency);
+        timerInitialized = 1;
+    }
+}
+static double getPrecisionTimeMs(void) {
+    initPrecisionTimer();
+    LARGE_INTEGER count;
+    QueryPerformanceCounter(&count);
+    return ((double)count.QuadPart * 1000.0) / (double)timerFrequency.QuadPart;
+}
+#else
+static void initPrecisionTimer(void) {}
+static double getPrecisionTimeMs(void) {
+    return ((double)clock() * 1000.0) / CLOCKS_PER_SEC;
+}
+#endif
+
+static int quietMode = 0;
 
 #define INF 1000000000
 
@@ -60,8 +86,10 @@ Graph* createGraph(int numVertices, int edgeCapacity) {
 
 void addEdge(Graph* graph, int src, int dest, int weight) {
     if (src < 0 || src >= graph->numVertices || dest < 0 || dest >= graph->numVertices) {
-        printf("Error: Invalid edge (%d -> %d). Vertices must be between 0 and %d.\n",
-               src, dest, graph->numVertices - 1);
+        if (!quietMode) {
+            printf("Error: Invalid edge (%d -> %d). Vertices must be between 0 and %d.\n",
+                   src, dest, graph->numVertices - 1);
+        }
         return;
     }
 
@@ -255,7 +283,7 @@ int dijkstra(Graph* graph, int source, int destination, int dist[], int parent[]
 
     int V = graph->numVertices;
 
-    if (hasNegativeEdge(graph)) {
+    if (!quietMode && hasNegativeEdge(graph)) {
         printf("\n[WARNING: Dijkstra Pre-check]\n");
         printf("Graph contains negative edge weights (energy rebates).\n");
         printf("Standard Dijkstra assumes non-negative weights and may compute\n");
@@ -781,7 +809,9 @@ Graph* loadGraphFromFile(const char* filename) {
     }
 
     fclose(file);
-    printf("Successfully loaded microgrid graph with %d nodes and %d transmission lines from '%s'.\n", V, E, filename);
+    if (!quietMode) {
+        printf("Successfully loaded microgrid graph with %d nodes and %d transmission lines from '%s'.\n", V, E, filename);
+    }
     return g;
 }
 
@@ -825,7 +855,171 @@ Graph* inputCustomGraph() {
     return g;
 }
 
+int handleCliRoute(int argc, char* argv[]) {
+    quietMode = 1;
+    if (argc < 5) {
+        printf("{\"success\":false,\"error\":\"Usage: --route <dijkstra|bellman-ford> <source> <destination> [filename]\"}\n");
+        return 1;
+    }
+
+    const char* algo = argv[2];
+    int source = atoi(argv[3]);
+    int destination = atoi(argv[4]);
+    const char* filename = (argc >= 6) ? argv[5] : "-";
+
+    Graph* g = NULL;
+    if (strcmp(filename, "-") == 0 || strcmp(filename, "stdin") == 0) {
+        int V, E;
+        if (scanf("%d %d", &V, &E) != 2 || V <= 0 || E < 0) {
+            printf("{\"success\":false,\"error\":\"Invalid graph header from stdin\"}\n");
+            return 1;
+        }
+        g = createGraph(V, E);
+        for (int i = 0; i < E; i++) {
+            int u, v, w;
+            if (scanf("%d %d %d", &u, &v, &w) != 3) {
+                printf("{\"success\":false,\"error\":\"Invalid edge line from stdin\"}\n");
+                freeGraph(g);
+                return 1;
+            }
+            if (u < 0 || u >= V || v < 0 || v >= V) {
+                printf("{\"success\":false,\"error\":\"Node index out of range\"}\n");
+                freeGraph(g);
+                return 1;
+            }
+            addEdge(g, u, v, w);
+        }
+    } else {
+        g = loadGraphFromFile(filename);
+        if (!g) {
+            printf("{\"success\":false,\"error\":\"Failed to open graph file\"}\n");
+            return 1;
+        }
+    }
+
+    if (source < 0 || source >= g->numVertices || destination < 0 || destination >= g->numVertices) {
+        printf("{\"success\":false,\"error\":\"Source or destination node out of range\"}\n");
+        freeGraph(g);
+        return 1;
+    }
+
+    int isDijkstra = (strcmp(algo, "dijkstra") == 0 || strcmp(algo, "d") == 0);
+    int isBellman = (strcmp(algo, "bellman-ford") == 0 || strcmp(algo, "bellman") == 0 || strcmp(algo, "bf") == 0);
+
+    if (!isDijkstra && !isBellman) {
+        printf("{\"success\":false,\"error\":\"Unknown algorithm. Use dijkstra or bellman-ford\"}\n");
+        freeGraph(g);
+        return 1;
+    }
+
+    int V = g->numVertices;
+    int hasNeg = hasNegativeEdge(g);
+    int* dist = (int*)malloc(V * sizeof(int));
+    int* parent = (int*)malloc(V * sizeof(int));
+    int cycleNode = -1;
+    int status = 0;
+
+    double startTime = getPrecisionTimeMs();
+
+    if (isDijkstra) {
+        status = dijkstra(g, source, destination, dist, parent);
+    } else {
+        status = bellmanFord(g, source, destination, dist, parent, &cycleNode);
+    }
+
+    double endTime = getPrecisionTimeMs();
+    double elapsedMs = endTime - startTime;
+    if (elapsedMs < 0.0001) elapsedMs = 0.0001;
+
+    int* path = (int*)malloc((V + 1) * sizeof(int));
+    int pathLength = 0;
+    if (status == 1) {
+        getPathArray(parent, destination, path, &pathLength, V + 1);
+    }
+
+    int* cycle = (int*)malloc((V + 2) * sizeof(int));
+    int cycleLength = 0;
+    if (status == -1 && cycleNode != -1) {
+        int curr = cycleNode;
+        for (int i = 0; i < V; i++) {
+            if (curr != -1 && parent[curr] != -1) {
+                curr = parent[curr];
+            }
+        }
+        int cycleStart = curr;
+        if (cycleStart != -1) {
+            cycle[cycleLength++] = cycleStart;
+            curr = parent[cycleStart];
+            while (curr != cycleStart && cycleLength < V + 1 && curr != -1) {
+                cycle[cycleLength++] = curr;
+                curr = parent[curr];
+            }
+            if (curr == cycleStart && cycleLength > 1) {
+                cycle[cycleLength++] = cycleStart;
+                for (int i = 0; i < cycleLength / 2; i++) {
+                    int t = cycle[i];
+                    cycle[i] = cycle[cycleLength - 1 - i];
+                    cycle[cycleLength - 1 - i] = t;
+                }
+            }
+        }
+    }
+
+    printf("{\n");
+    printf("  \"success\": %s,\n", (status == 1) ? "true" : "false");
+    printf("  \"algorithm\": \"%s\",\n", isDijkstra ? "Dijkstra (Binary Min-Heap)" : "Bellman-Ford");
+    printf("  \"source\": %d,\n", source);
+    printf("  \"destination\": %d,\n", destination);
+    printf("  \"status\": %d,\n", status);
+    printf("  \"has_negative_edge\": %s,\n", hasNeg ? "true" : "false");
+
+    if (status == 1) {
+        printf("  \"cost\": %d,\n", dist[destination]);
+        printf("  \"status_text\": \"Optimal Route Computed\",\n");
+    } else if (status == 0) {
+        printf("  \"cost\": null,\n");
+        printf("  \"status_text\": \"Destination Unreachable\",\n");
+    } else {
+        printf("  \"cost\": null,\n");
+        printf("  \"status_text\": \"Negative Cycle / Arbitrage Loop Detected\",\n");
+    }
+
+    printf("  \"path\": [");
+    for (int i = 0; i < pathLength; i++) {
+        printf("%d%s", path[i], (i < pathLength - 1) ? ", " : "");
+    }
+    printf("],\n");
+
+    printf("  \"cycle\": [");
+    for (int i = 0; i < cycleLength; i++) {
+        printf("%d%s", cycle[i], (i < cycleLength - 1) ? ", " : "");
+    }
+    printf("],\n");
+
+    if (isDijkstra && hasNeg) {
+        printf("  \"warning\": \"Graph contains negative rebate lines. Standard Dijkstra assumes non-negative weights and may compute an incorrect path.\",\n");
+    } else if (status == -1) {
+        printf("  \"warning\": \"Negative-weight cycle reachable from source. Energy can be routed infinitely in this loop with cost tending to -infinity.\",\n");
+    } else {
+        printf("  \"warning\": null,\n");
+    }
+
+    printf("  \"execution_time_ms\": %.4f\n", elapsedMs);
+    printf("}\n");
+
+    free(path);
+    free(cycle);
+    free(dist);
+    free(parent);
+    freeGraph(g);
+    return 0;
+}
+
 int main(int argc, char* argv[]) {
+    if (argc > 1 && strcmp(argv[1], "--route") == 0) {
+        return handleCliRoute(argc, argv);
+    }
+
     if (argc > 1 && strcmp(argv[1], "--test") == 0) {
         runAutomatedTests();
         return 0;

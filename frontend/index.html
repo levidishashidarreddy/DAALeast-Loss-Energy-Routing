@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GRIDFLOW — Intelligent Microgrid Energy Route Optimizer</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- Background Ambient Glows -->
+    <div class="ambient-glow glow-1"></div>
+    <div class="ambient-glow glow-2"></div>
+
+    <!-- Sticky Glass Navigation -->
+    <header class="navbar">
+        <div class="nav-container">
+            <a href="#hero" class="brand">
+                <div class="brand-icon">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                        <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+                    </svg>
+                </div>
+                <div class="brand-text">
+                    <span class="brand-title">GRIDFLOW</span>
+                    <span class="brand-tag">DAA SSSP</span>
+                </div>
+            </a>
+
+            <nav class="nav-menu">
+                <a href="#overview" class="nav-link">Overview</a>
+                <a href="#network" class="nav-link">Network</a>
+                <a href="#router" class="nav-link">Route Finder</a>
+                <a href="#algorithms" class="nav-link">Algorithms</a>
+                <a href="#benchmarks" class="nav-link">Benchmarks</a>
+            </nav>
+
+            <div class="status-indicator" id="cEngineStatus">
+                <span class="status-pulse"></span>
+                <span class="status-label">C Engine Online</span>
+            </div>
+        </div>
+    </header>
+
+    <main class="main-wrapper">
+        <!-- Hero Section -->
+        <section id="hero" class="hero-section">
+            <div class="hero-content">
+                <div class="hero-badge">DESIGN & ANALYSIS OF ALGORITHMS</div>
+                <h1 class="hero-title">GRIDFLOW</h1>
+                <p class="hero-subtitle">Intelligent Energy Route Optimization</p>
+                <p class="hero-desc">
+                    Find the most efficient energy transmission paths in localized smart microgrids using Binary Min-Heap Dijkstra and Bellman-Ford algorithms.
+                </p>
+                <div class="hero-actions">
+                    <a href="#network" class="btn btn-primary">
+                        <span>Explore Network</span>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="5" y1="12" x2="19" y2="12"></line>
+                            <polyline points="12 5 19 12 12 19"></polyline>
+                        </svg>
+                    </a>
+                    <a href="#router" class="btn btn-glass">
+                        <span>Find Optimal Route</span>
+                    </a>
+                </div>
+            </div>
+
+            <div class="hero-visual">
+                <div class="hero-card-glass">
+                    <div class="hero-visual-header">
+                        <span class="hero-dot"></span>
+                        <span class="hero-card-title">Live Microgrid Feeders</span>
+                    </div>
+                    <canvas id="heroMiniCanvas" width="380" height="240"></canvas>
+                    <div class="hero-visual-footer">
+                        <span>Wheeling Loss: <code>I²R</code></span>
+                        <span>Feed-in Rebate: <code>w &lt; 0</code></span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Overview Section: 4 Compact Stats in One Balanced Row -->
+        <section id="overview" class="section">
+            <div class="stats-row">
+                <div class="glass-stat-card">
+                    <span class="stat-label">Active Nodes</span>
+                    <span class="stat-number" id="statNodesCount">5</span>
+                    <span class="stat-meta">Prosumers & Substations</span>
+                </div>
+                <div class="glass-stat-card">
+                    <span class="stat-label">Transmission Lines</span>
+                    <span class="stat-number" id="statEdgesCount">7</span>
+                    <span class="stat-meta">Directed Feeder Cables</span>
+                </div>
+                <div class="glass-stat-card">
+                    <span class="stat-label">Negative Edges</span>
+                    <span class="stat-number accent-emerald" id="statNegativeCount">0</span>
+                    <span class="stat-meta">Green Feed-in Rebates</span>
+                </div>
+                <div class="glass-stat-card">
+                    <span class="stat-label">C Engine Status</span>
+                    <span class="stat-number font-code text-cyan" id="cEngineTextStatus">Native GCC</span>
+                    <span class="stat-meta">microgrid_router.exe</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Network Visualizer Section (Main Visual Highlight) -->
+        <section id="network" class="section">
+            <div class="section-title-wrap">
+                <h2 class="section-heading">Microgrid Network Topology</h2>
+                <p class="section-subheading">Interactive visual model of electrical substations, transmission lines, and real-time power flows.</p>
+            </div>
+
+            <div class="glass-panel visualizer-panel">
+                <!-- Visualizer Toolbar -->
+                <div class="panel-toolbar">
+                    <div class="scenario-selector">
+                        <span class="toolbar-label">Scenarios:</span>
+                        <div class="preset-pill-group" id="presetButtons">
+                            <!-- Injected dynamically -->
+                        </div>
+                    </div>
+
+                    <div class="toolbar-controls">
+                        <button id="btnToggleEditor" class="btn btn-glass btn-sm">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M12 20h9"></path>
+                                <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+                            </svg>
+                            <span>Edit Grid</span>
+                        </button>
+                        <button id="btnResetView" class="btn btn-glass btn-sm" title="Re-center layout">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+                                <path d="M3 3v5h5"></path>
+                            </svg>
+                            <span>Reset</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Canvas Visualizer -->
+                <div class="canvas-container">
+                    <canvas id="networkCanvas" width="1120" height="520"></canvas>
+                </div>
+
+                <!-- Canvas Legend & Status Bar -->
+                <div class="panel-statusbar">
+                    <div class="legend-group">
+                        <span class="legend-tag"><span class="tag-dot dot-source"></span> Seller (Source)</span>
+                        <span class="legend-tag"><span class="tag-dot dot-dest"></span> Buyer (Destination)</span>
+                        <span class="legend-tag"><span class="tag-dot dot-path"></span> Optimal Path</span>
+                        <span class="legend-tag"><span class="tag-dot dot-rebate"></span> Green Rebate (w &lt; 0)</span>
+                        <span class="legend-tag"><span class="tag-dot dot-cycle"></span> Arbitrage Loop</span>
+                    </div>
+                    <div class="status-note" id="topologyDescription">
+                        Standard 5-node microgrid with positive resistive transmission losses.
+                    </div>
+                </div>
+
+                <!-- Collapsible Grid Editor Drawer (Tucked away by default) -->
+                <div class="collapsible-drawer" id="topologyEditorDrawer">
+                    <div class="drawer-header">
+                        <div class="drawer-tabs">
+                            <button class="drawer-tab active" id="tabLineList">Line List Editor</button>
+                            <button class="drawer-tab" id="tabRawFormat">Raw Matrix / Text</button>
+                        </div>
+                        <button class="drawer-close" id="btnCloseEditor" title="Close Editor">&times;</button>
+                    </div>
+
+                    <!-- Line List Tab -->
+                    <div class="drawer-pane active" id="panelLineList">
+                        <div class="drawer-grid">
+                            <div class="drawer-column">
+                                <div class="drawer-form-row">
+                                    <label for="inputNumNodes">Total Nodes (V):</label>
+                                    <div class="input-with-button">
+                                        <input type="number" id="inputNumNodes" min="2" max="50" value="5">
+                                        <button id="btnSetNodes" class="btn btn-glass btn-sm">Set</button>
+                                    </div>
+                                </div>
+
+                                <div class="add-edge-box">
+                                    <span class="box-title">Add Directed Line</span>
+                                    <div class="add-inputs-inline">
+                                        <input type="number" id="newEdgeSrc" placeholder="Src" min="0">
+                                        <span class="muted-arrow">&rarr;</span>
+                                        <input type="number" id="newEdgeDest" placeholder="Dest" min="0">
+                                        <input type="number" id="newEdgeWeight" placeholder="Weight (&plusmn;)">
+                                        <button id="btnAddEdge" class="btn btn-primary btn-sm">+ Add</button>
+                                    </div>
+                                    <span class="field-hint">Positive = line loss; Negative = green energy feed-in credit.</span>
+                                </div>
+                            </div>
+
+                            <div class="drawer-column">
+                                <div class="table-scroll-wrap">
+                                    <table class="compact-glass-table" id="tableEdgeList">
+                                        <thead>
+                                            <tr>
+                                                <th>Line</th>
+                                                <th>Net Weight</th>
+                                                <th>Action</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="edgeListTbody">
+                                            <!-- Injected dynamically -->
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Raw Text Tab -->
+                    <div class="drawer-pane" id="panelRawFormat">
+                        <p class="field-hint">Format: First line <code>&lt;V&gt; &lt;E&gt;</code>, followed by lines of <code>&lt;src&gt; &lt;dest&gt; &lt;weight&gt;</code></p>
+                        <textarea id="rawGraphText" class="glass-textarea" rows="5" placeholder="5 7&#10;0 1 4&#10;0 2 2&#10;..."></textarea>
+                        <button id="btnApplyRaw" class="btn btn-primary btn-sm">Apply Topology</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Route Finder Section: Two-Column Glass Panel -->
+        <section id="router" class="section">
+            <div class="section-title-wrap">
+                <h2 class="section-heading">Energy Route Optimizer</h2>
+                <p class="section-subheading">Select power seller and buyer nodes. Shortest path computation executes directly in the native C engine.</p>
+            </div>
+
+            <div class="glass-panel router-panel">
+                <div class="router-split-layout">
+                    <!-- Left: Control Column -->
+                    <div class="router-control-col">
+                        <div class="control-group">
+                            <label class="control-label">Power Seller (Source Node)</label>
+                            <select id="selectSource" class="glass-select">
+                                <!-- Dynamic -->
+                            </select>
+                        </div>
+
+                        <div class="control-group">
+                            <label class="control-label">Power Buyer (Destination Node)</label>
+                            <select id="selectDestination" class="glass-select">
+                                <!-- Dynamic -->
+                            </select>
+                        </div>
+
+                        <div class="control-group">
+                            <label class="control-label">Algorithm Selection</label>
+                            <div class="segmented-control">
+                                <label class="segment-option">
+                                    <input type="radio" name="algorithmSelect" value="dijkstra" checked>
+                                    <span class="segment-pill">
+                                        <span class="seg-title">Dijkstra</span>
+                                        <span class="seg-sub">Min-Heap • O((V+E) log V)</span>
+                                    </span>
+                                </label>
+                                <label class="segment-option">
+                                    <input type="radio" name="algorithmSelect" value="bellman-ford">
+                                    <span class="segment-pill">
+                                        <span class="seg-title">Bellman-Ford</span>
+                                        <span class="seg-sub">Relaxation • O(V · E)</span>
+                                    </span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Dijkstra Warning when Negative Edges Present -->
+                        <div id="dijkstraWarningBanner" class="glass-alert alert-warning" style="display: none;">
+                            <div class="alert-icon">⚠️</div>
+                            <div class="alert-text">
+                                <strong>Negative Weights Present:</strong>
+                                Dijkstra's greedy choice assumes non-negative weights and may yield suboptimal paths.
+                                <div class="alert-actions-inline">
+                                    <button id="btnAutoSwitchBellman" class="btn-text">Switch to Bellman-Ford</button>
+                                    <span class="sep">•</span>
+                                    <button id="btnKeepDijkstra" class="btn-text muted">Run Anyway</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="control-buttons">
+                            <button id="btnFindRoute" class="btn btn-primary btn-block">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+                                </svg>
+                                <span>Find Optimal Route</span>
+                            </button>
+                            <button id="btnCompareBoth" class="btn btn-glass btn-block">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+                                    <line x1="8" y1="21" x2="16" y2="21"></line>
+                                    <line x1="12" y1="17" x2="12" y2="21"></line>
+                                </svg>
+                                <span>Compare Both Algorithms</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Right: Results Column -->
+                    <div class="router-result-col">
+                        <!-- Initial Empty State -->
+                        <div class="result-placeholder" id="routePlaceholder">
+                            <div class="placeholder-icon">
+                                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                    <circle cx="12" cy="12" r="9"></circle>
+                                    <polyline points="12 7 12 12 15 15"></polyline>
+                                </svg>
+                            </div>
+                            <span class="placeholder-title">No Route Computed</span>
+                            <span class="placeholder-desc">Choose source and destination substations, then click Find Optimal Route to execute the C solver.</span>
+                        </div>
+
+                        <!-- Computed Route Results Card -->
+                        <div class="result-active-panel" id="routeResultCard" style="display: none;">
+                            <div class="result-card-header">
+                                <div>
+                                    <span class="badge" id="resultStatusBadge">Optimal Route</span>
+                                    <h3 class="result-algo-title" id="resultAlgoTitle">Dijkstra's Algorithm</h3>
+                                </div>
+                                <div class="c-time-tag">
+                                    <span class="time-label">C Time:</span>
+                                    <span class="time-value" id="resultExecutionTime">0.0000 ms</span>
+                                </div>
+                            </div>
+
+                            <!-- Optimal Path Display -->
+                            <div id="resultOptimalPanel">
+                                <div class="result-metrics-grid">
+                                    <div class="res-stat-card">
+                                        <span class="res-label">Net Transfer Cost</span>
+                                        <span class="res-value text-cyan" id="resultTotalCost">0 units</span>
+                                    </div>
+                                    <div class="res-stat-card">
+                                        <span class="res-label">Line Hops</span>
+                                        <span class="res-value" id="resultHopCount">0</span>
+                                    </div>
+                                    <div class="res-stat-card">
+                                        <span class="res-label">Engine Verification</span>
+                                        <span class="res-value text-emerald" id="resultVerificationLabel">Verified via GCC</span>
+                                    </div>
+                                </div>
+
+                                <div class="path-display-box">
+                                    <span class="box-label">Computed Transmission Path:</span>
+                                    <div class="path-pill-sequence" id="resultPathSequence">
+                                        <!-- Injected dynamically -->
+                                    </div>
+                                </div>
+
+                                <div class="hops-breakdown-row" id="resultHopsBreakdown">
+                                    <!-- Step-by-step hops -->
+                                </div>
+                            </div>
+
+                            <!-- Negative Cycle / Arbitrage Loop Alert -->
+                            <div id="resultCyclePanel" class="cycle-alert-box" style="display: none;">
+                                <div class="alert-header-row">
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <circle cx="12" cy="12" r="10"></circle>
+                                        <line x1="12" y1="8" x2="12" y2="12"></line>
+                                        <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                                    </svg>
+                                    <strong>Unbounded Arbitrage Loop Detected</strong>
+                                </div>
+                                <p class="cycle-text">
+                                    A directed closed loop with strictly negative net wheeling loss is reachable from the source:
+                                    <span class="font-code text-rose" id="resultCyclePath">Node 1 &rarr; Node 2 &rarr; Node 1</span>
+                                </p>
+                                <p class="cycle-sub">Power cycling indefinitely through this closed loop yields infinite synthetic credits (-&infin;). No finite shortest path exists.</p>
+                            </div>
+
+                            <!-- Unreachable Destination Alert -->
+                            <div id="resultUnreachablePanel" class="unreachable-alert-box" style="display: none;">
+                                <strong>Destination Substation Unreachable</strong>
+                                <p id="resultUnreachableMsg">No directed transmission path connects the selected nodes.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Collapsible Viva Side-by-Side Comparison -->
+                <div class="viva-comparison-drawer" id="comparisonVivaCard" style="display: none;">
+                    <div class="drawer-header">
+                        <span class="drawer-title">Algorithm Comparison & Counterexample Analysis</span>
+                        <button class="drawer-close" id="btnCloseComparison">&times;</button>
+                    </div>
+                    <div class="viva-columns-grid">
+                        <div class="viva-col" id="vivaDijkstraCol">
+                            <div class="viva-col-head">
+                                <strong>Dijkstra (Binary Min-Heap)</strong>
+                                <span class="badge badge-blue">O((V+E) log V)</span>
+                            </div>
+                            <div class="viva-col-content" id="vivaDijkstraBody"></div>
+                        </div>
+                        <div class="viva-col" id="vivaBellmanCol">
+                            <div class="viva-col-head">
+                                <strong>Bellman-Ford (Relaxation)</strong>
+                                <span class="badge badge-emerald">O(V · E)</span>
+                            </div>
+                            <div class="viva-col-content" id="vivaBellmanBody"></div>
+                        </div>
+                    </div>
+                    <div class="viva-verdict-banner" id="vivaVerdict"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- DAA Algorithms Section: Two Compact Comparison Cards + Collapsible Theory -->
+        <section id="algorithms" class="section">
+            <div class="section-title-wrap">
+                <h2 class="section-heading">DAA Algorithm Architecture</h2>
+                <p class="section-subheading">Core theoretical characteristics of the Single-Source Shortest Path (SSSP) algorithms implemented in C.</p>
+            </div>
+
+            <div class="algorithms-grid">
+                <!-- Dijkstra Card -->
+                <div class="glass-panel algo-card">
+                    <div class="algo-card-header">
+                        <span class="badge badge-blue">Greedy Strategy</span>
+                        <h3 class="algo-name">Dijkstra's Algorithm</h3>
+                        <span class="algo-ds">Binary Min-Heap & Decrease-Key</span>
+                    </div>
+                    <div class="algo-specs">
+                        <div class="spec-item">
+                            <span class="spec-label">Time Complexity</span>
+                            <span class="spec-val text-cyan font-code">O((V + E) log V)</span>
+                        </div>
+                        <div class="spec-item">
+                            <span class="spec-label">Space Complexity</span>
+                            <span class="spec-val font-code">O(V + E)</span>
+                        </div>
+                    </div>
+                    <p class="algo-summary">
+                        Greedily finalizes unvisited nodes with minimal tentative distance. Extremely fast for large non-negative microgrids, but assumes non-decreasing distances and fails with negative rebate lines.
+                    </p>
+                </div>
+
+                <!-- Bellman-Ford Card -->
+                <div class="glass-panel algo-card">
+                    <div class="algo-card-header">
+                        <span class="badge badge-emerald">Dynamic Programming</span>
+                        <h3 class="algo-name">Bellman-Ford Algorithm</h3>
+                        <span class="algo-ds">Iterative Edge Relaxation</span>
+                    </div>
+                    <div class="algo-specs">
+                        <div class="spec-item">
+                            <span class="spec-label">Time Complexity</span>
+                            <span class="spec-val text-emerald font-code">O(V · E)</span>
+                        </div>
+                        <div class="spec-item">
+                            <span class="spec-label">Space Complexity</span>
+                            <span class="spec-val font-code">O(V + E)</span>
+                        </div>
+                    </div>
+                    <p class="algo-summary">
+                        Relaxes all <em>E</em> edges across <em>V</em> &minus; 1 passes with early-exit convergence. Supports negative energy feed-in rebates and flags unbounded arbitrage loops on the <em>V</em>-th pass.
+                    </p>
+                </div>
+            </div>
+
+            <!-- Collapsible Viva & Theoretical Details -->
+            <div class="collapsible-theory-wrap">
+                <details class="glass-accordion">
+                    <summary class="accordion-trigger">
+                        <span>View Faculty Viva Voce Q&A & Theoretical Proofs</span>
+                        <svg class="chevron-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="6 9 12 15 18 9"></polyline>
+                        </svg>
+                    </summary>
+                    <div class="accordion-content">
+                        <div class="qa-grid">
+                            <div class="qa-item">
+                                <strong>Why does Dijkstra fail on negative-weight edges?</strong>
+                                <p>Dijkstra assumes that adding an edge can never reduce path distance. Once a node is extracted from the min-heap, it is finalized. A later negative feed-in rebate could lower total cost, but Dijkstra never revisits finalized nodes.</p>
+                            </div>
+                            <div class="qa-item">
+                                <strong>Why are V &minus; 1 relaxation passes sufficient in Bellman-Ford?</strong>
+                                <p>In any simple directed graph without cycles, the longest shortest path contains at most <em>V</em> &minus; 1 edges. Each pass guarantees discovering shortest paths with one additional hop.</p>
+                            </div>
+                            <div class="qa-item">
+                                <strong>What is an energy arbitrage loop, and how is it detected?</strong>
+                                <p>A closed loop with net negative weight (&sum; <em>w</em> &lt; 0) where rebates exceed losses. Bellman-Ford detects this during its <em>V</em>-th pass if distance can still be relaxed.</p>
+                            </div>
+                            <div class="qa-item">
+                                <strong>What constitutes Bellman-Ford's adversarial worst case?</strong>
+                                <p>A reverse-ordered line graph where edge propagation occurs only by a single node per pass, disabling early exit and forcing all <em>V</em> &minus; 1 passes (quadratic runtime).</p>
+                            </div>
+                        </div>
+                    </div>
+                </details>
+            </div>
+        </section>
+
+        <!-- Benchmarks Section: Metrics + Log Chart + Collapsible CSV Table -->
+        <section id="benchmarks" class="section">
+            <div class="section-title-wrap">
+                <h2 class="section-heading">Empirical Performance Benchmarks</h2>
+                <p class="section-subheading">Real-world measurements generated by <code>benchmark.c</code> native MSYS2 GCC compilation. Parsed directly from <code>benchmark_results.csv</code>.</p>
+            </div>
+
+            <!-- Benchmark Highlights Row -->
+            <div class="stats-row">
+                <div class="glass-stat-card">
+                    <span class="stat-label">Max Vertices Tested</span>
+                    <span class="stat-number font-code">10,000</span>
+                    <span class="stat-meta">40,000 Feeder Lines</span>
+                </div>
+                <div class="glass-stat-card">
+                    <span class="stat-label">Dijkstra Heap Speed</span>
+                    <span class="stat-number font-code text-cyan" id="statDijkstra10k">4.65 ms</span>
+                    <span class="stat-meta">at V = 10,000</span>
+                </div>
+                <div class="glass-stat-card">
+                    <span class="stat-label">Bellman-Ford Worst Case</span>
+                    <span class="stat-number font-code text-rose" id="statBf10k">518.57 ms</span>
+                    <span class="stat-meta">Strict O(V · E) Scaling</span>
+                </div>
+                <div class="glass-stat-card">
+                    <span class="stat-label">Measured Speedup</span>
+                    <span class="stat-number font-code text-emerald" id="statMaxSpeedup">111.6x</span>
+                    <span class="stat-meta">Dijkstra over BF Worst</span>
+                </div>
+            </div>
+
+            <!-- Benchmark Canvas Chart Card -->
+            <div class="glass-panel chart-panel">
+                <div class="panel-toolbar">
+                    <div>
+                        <span class="toolbar-title">Execution Time Scaling (Logarithmic Scale)</span>
+                    </div>
+                    <div class="chart-legend-row">
+                        <span class="chart-legend-pill"><span class="chart-line-dot dot-dijkstra"></span> Dijkstra Min-Heap (O(E log V))</span>
+                        <span class="chart-legend-pill"><span class="chart-line-dot dot-bf-early"></span> Bellman-Ford Early-Exit</span>
+                        <span class="chart-legend-pill"><span class="chart-line-dot dot-bf-worst"></span> Bellman-Ford Worst-Case (O(V · E))</span>
+                    </div>
+                    <button id="btnRerunBenchmark" class="btn btn-glass btn-sm">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M23 4v6h-6"></path>
+                            <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+                        </svg>
+                        <span>Re-run in C Engine</span>
+                    </button>
+                </div>
+
+                <div class="chart-canvas-wrap">
+                    <canvas id="benchmarkChart" width="1120" height="380"></canvas>
+                </div>
+
+                <!-- Collapsible Raw CSV Data Table -->
+                <div class="collapsible-theory-wrap" style="margin-top: 1.25rem;">
+                    <details class="glass-accordion">
+                        <summary class="accordion-trigger">
+                            <span>View Raw Benchmark Measurements Table (benchmark_results.csv)</span>
+                            <svg class="chevron-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="6 9 12 15 18 9"></polyline>
+                            </svg>
+                        </summary>
+                        <div class="accordion-content">
+                            <div class="table-scroll-wrap">
+                                <table class="compact-glass-table" id="benchmarkTable">
+                                    <thead>
+                                        <tr>
+                                            <th>Vertices (V)</th>
+                                            <th>Edges (E)</th>
+                                            <th>Avg Degree</th>
+                                            <th>Topology</th>
+                                            <th>Dijkstra (ms)</th>
+                                            <th>BF Early (ms)</th>
+                                            <th>BF Worst (ms)</th>
+                                            <th>Speedup</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="benchmarkTbody">
+                                        <!-- Injected dynamically -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </details>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Minimal Modern Footer -->
+    <footer class="footer">
+        <div class="footer-inner">
+            <div class="footer-left">
+                <span class="footer-brand">GRIDFLOW</span>
+                <span class="footer-desc">Least-Loss Energy Routing in a Microgrid</span>
+            </div>
+            <div class="footer-right">
+                <span>Design & Analysis of Algorithms</span>
+                <span class="footer-sep">•</span>
+                <span>B.Tech CSE</span>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Minimal Toast Notification -->
+    <div id="toastNotification" class="glass-toast"></div>
+
+    <script src="script.js"></script>
+</body>
+</html>
